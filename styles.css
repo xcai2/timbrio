@@ -16,6 +16,10 @@
   --shadow: 0 1px 2px rgba(28,26,34,.04), 0 4px 16px rgba(124,58,237,.06);
   --shadow-lg: 0 2px 4px rgba(28,26,34,.04), 0 12px 32px rgba(124,58,237,.10);
   --err: #b91c1c; --err-bg: #fef2f2;
+  /* The caption still being spoken. A distinct hue rather than a dimmer grey: dimming
+     reads as "less important", when what is meant is "not settled yet". Matches the
+     floating window, so captions look the same wherever they are being read. */
+  --live: #0d7a6f;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -28,6 +32,7 @@
     --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.25);
     --shadow-lg: 0 2px 4px rgba(0,0,0,.3), 0 12px 32px rgba(0,0,0,.4);
     --err: #fca5a5; --err-bg: #2a1416;
+    --live: #7fc8b8;
   }
 }
 
@@ -160,9 +165,12 @@ input:focus, select:focus { outline: none; border-color: var(--v-400);
   border: 1px solid var(--line); min-height: 140px; max-height: 340px; overflow-y: auto;
   font-size: 15px; line-height: 1.75; }
 #livebox:empty::before { content: attr(data-empty); color: var(--faint); }
-#livetext p { margin: 0 0 10px; }
+/* A finished caption settles into the normal text colour; the one still being spoken is
+   tinted instead. Both are stated outright rather than left to inheritance, so the change
+   on completion is a deliberate transition between two named states. */
+#livetext p { margin: 0 0 10px; color: var(--fg); }
 #livetext .time { display: inline; margin-right: 8px; }
-#interim { color: var(--faint); font-style: italic; }
+#interim { color: var(--live); font-style: italic; }
 #livego.listening { background: linear-gradient(145deg, #ef4444, #b91c1c);
   box-shadow: 0 2px 12px rgba(220,38,38,.4); }
 #livego.listening::before { content: ''; display: inline-block; width: 8px; height: 8px;
