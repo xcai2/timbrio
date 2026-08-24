@@ -271,6 +271,16 @@ let recorder = null;
 let liveStream = null;
 let pip = null;             // floating always-on-top window, while recording
 let finals = [];            // { text, gap } per completed turn, mirrored into the PiP window
+let idleTimer = 0;          // fires when nobody has spoken for IDLE_STOP_MS
+
+/* A recording left running costs money on two counts: the streaming socket bills for as
+   long as it is open, and the final pass bills for the whole file — so a session forgotten
+   overnight is charged for the silence twice over. Stopping on silence bounds both.
+
+   Ten minutes is long enough to sit through a pause in a meeting, a question being read, or
+   someone stepping out, and short enough that a session forgotten at the end of the day
+   costs minutes rather than hours. */
+const IDLE_STOP_MS = 10 * 60 * 1000;
 
 for (const [code, label] of LANGS) $('lang').append(new Option(label, code));
 $('source').value = localStorage.getItem('live_source') || 'mic';
@@ -362,6 +372,7 @@ $('livego').onclick = async () => {
     stream: recorder.stream,
     lang: $('lang').value,
     onPartial: txt => {
+      noteSpeech();
       $('interim').textContent = txt;
       $('livebox').scrollTop = $('livebox').scrollHeight;
       /* The pause that precedes a turn is only known once the turn closes and the API
@@ -377,6 +388,7 @@ $('livego').onclick = async () => {
       pip?.setCaptions(finals, txt, 0);
     },
     onFinal: (txt, gapMs) => {
+      noteSpeech();
       const p = document.createElement('p');
       p.textContent = txt;
       $('livetext').append(p);
@@ -406,6 +418,7 @@ $('livego').onclick = async () => {
     onError: msg => { $('livenote').className = 'note'; $('livenote').textContent = msg + ' ' + t('live.stillRecording'); },
   });
   liveStream.start().catch(() => {});
+  noteSpeech();          // arm the idle countdown; silence from the outset still stops
 
   // Float the session above other apps, so it stays visible once the user switches to
   // the call they are recording. Best-effort: unsupported browsers, and a user who
@@ -463,7 +476,25 @@ function showPipButton() {
   $('livenote').after(b);
 }
 
+/* ---------------- idle stop ----------------
+   Restarted by every scrap of recognised speech, so the countdown measures silence rather
+   than elapsed time. Speech is the right signal here: the input meter never reaches zero in
+   a real room, so a level-based check would keep a session alive on air conditioning. */
+function noteSpeech() {
+  if (!recorder?.active) return;
+  clearTimeout(idleTimer);
+  idleTimer = setTimeout(() => {
+    if (!recorder?.active) return;
+    // Say why before stopping — finishRecording immediately overwrites this with its own
+    // progress messages, but the reason survives in the transcript that follows.
+    $('livenote').className = 'note';
+    $('livenote').textContent = t('live.idleStopped');
+    finishRecording();
+  }, IDLE_STOP_MS);
+}
+
 async function finishRecording() {
+  clearTimeout(idleTimer);
   const key = keyInput.value.trim();
   $('livego').disabled = true;
   $('livego').classList.remove('listening');

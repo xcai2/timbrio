@@ -94,6 +94,7 @@ export const STRINGS = {
     'live.noSysAudio': 'No audio was shared. In the sharing dialog, pick a tab and tick “Share tab audio” — without it the browser sends only video.',
     'live.shareDenied': 'Screen sharing was cancelled, so computer audio could not be captured.',
     'live.sysHint': 'You will be asked to choose what to share — pick the tab that is playing, and tick “Share tab audio”.',
+    'live.idleStopped': 'Stopped automatically after 10 minutes of silence, to avoid recording — and billing for — an empty room. Transcribing what was captured…',
 
     'toolbar.search': 'Search the transcript…',
     'toolbar.summary': '✨ AI Summary',
@@ -211,6 +212,7 @@ export const STRINGS = {
     'live.noSysAudio': '没有共享到音频。请在共享对话框中选择标签页，并勾选「共享标签页音频」— 不勾选的话浏览器只会发送画面。',
     'live.shareDenied': '屏幕共享已取消，因此无法采集电脑声音。',
     'live.sysHint': '浏览器会让你选择共享内容 — 请选择正在播放的那个标签页，并勾选「共享标签页音频」。',
+    'live.idleStopped': '已因 10 分钟无人说话而自动停止，避免持续录制空房间并产生费用。正在转写已录到的内容…',
 
     'toolbar.search': '搜索文字稿…',
     'toolbar.summary': '✨ AI 摘要',
@@ -327,6 +329,7 @@ export const STRINGS = {
     'live.noSysAudio': '音声が共有されませんでした。共有ダイアログでタブを選び、「タブの音声を共有」にチェックを入れてください。チェックしないと映像のみが送信されます。',
     'live.shareDenied': '画面共有がキャンセルされたため、パソコンの音声を取得できませんでした。',
     'live.sysHint': '共有する対象を選ぶ画面が表示されます — 再生中のタブを選び、「タブの音声を共有」にチェックを入れてください。',
+    'live.idleStopped': '10分間発話がなかったため自動的に停止しました（無音の録音と課金を避けるため）。録音済みの内容を文字起こししています…',
 
     'toolbar.search': '文字起こしを検索…',
     'toolbar.summary': '✨ AI 要約',
@@ -443,6 +446,7 @@ export const STRINGS = {
     'live.noSysAudio': '오디오가 공유되지 않았습니다. 공유 대화상자에서 탭을 선택하고 "탭 오디오 공유"를 체크하세요. 체크하지 않으면 화면만 전송됩니다.',
     'live.shareDenied': '화면 공유가 취소되어 컴퓨터 소리를 캡처할 수 없습니다.',
     'live.sysHint': '공유할 대상을 선택하라는 창이 뜹니다 — 재생 중인 탭을 고르고 "탭 오디오 공유"를 체크하세요.',
+    'live.idleStopped': '10분 동안 말소리가 없어 자동으로 중지했습니다. 빈 방을 계속 녹음하고 요금이 부과되는 것을 방지합니다. 녹음된 내용을 전사하는 중…',
 
     'toolbar.search': '전사본 검색…',
     'toolbar.summary': '✨ AI 요약',
@@ -559,6 +563,7 @@ export const STRINGS = {
     'live.noSysAudio': 'No se compartió audio. En el diálogo, elige una pestaña y marca «Compartir audio de la pestaña»; sin eso el navegador solo envía vídeo.',
     'live.shareDenied': 'Se canceló la compartición de pantalla, así que no se pudo capturar el audio del ordenador.',
     'live.sysHint': 'Se te pedirá elegir qué compartir: selecciona la pestaña que está reproduciendo y marca «Compartir audio de la pestaña».',
+    'live.idleStopped': 'Detenido automáticamente tras 10 minutos de silencio, para no grabar —ni facturar— una sala vacía. Transcribiendo lo capturado…',
 
     'toolbar.search': 'Buscar en la transcripción…',
     'toolbar.summary': '✨ Resumen con IA',
@@ -675,6 +680,7 @@ export const STRINGS = {
     'live.noSysAudio': 'Aucun son n’a été partagé. Dans la boîte de dialogue, choisissez un onglet et cochez « Partager l’audio de l’onglet » — sans cela, le navigateur n’envoie que la vidéo.',
     'live.shareDenied': 'Le partage d’écran a été annulé, l’audio de l’ordinateur n’a donc pas pu être capté.',
     'live.sysHint': 'Le navigateur vous demandera quoi partager — choisissez l’onglet en cours de lecture et cochez « Partager l’audio de l’onglet ».',
+    'live.idleStopped': 'Arrêt automatique après 10 minutes de silence, pour éviter d’enregistrer — et de facturer — une pièce vide. Transcription de ce qui a été capté…',
 
     'toolbar.search': 'Rechercher dans la transcription…',
     'toolbar.summary': '✨ Résumé IA',
@@ -791,6 +797,7 @@ export const STRINGS = {
     'live.noSysAudio': 'Es wurde kein Ton freigegeben. Wählen Sie im Dialog einen Tab und aktivieren Sie „Tab-Audio freigeben“ — sonst sendet der Browser nur Video.',
     'live.shareDenied': 'Die Bildschirmfreigabe wurde abgebrochen, daher konnte kein Computer-Audio aufgenommen werden.',
     'live.sysHint': 'Sie werden gefragt, was freigegeben werden soll — wählen Sie den abspielenden Tab und aktivieren Sie „Tab-Audio freigeben“.',
+    'live.idleStopped': 'Nach 10 Minuten Stille automatisch gestoppt, um einen leeren Raum nicht weiter aufzunehmen und abzurechnen. Das Aufgenommene wird transkribiert…',
 
     'toolbar.search': 'Transkript durchsuchen…',
     'toolbar.summary': '✨ KI-Zusammenfassung',
