@@ -176,6 +176,11 @@ input:focus, select:focus { outline: none; border-color: var(--v-400);
 #livego.listening::before { content: ''; display: inline-block; width: 8px; height: 8px;
   border-radius: 50%; background: #fff; animation: pulse 1.2s infinite; }
 @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
+/* Paused is a state you can sit in for a long time without noticing, and the cost of not
+   noticing is a meeting recorded as silence. A frozen clock alone reads as a bug rather
+   than a state, so the timer is marked as paused rather than just left to stop moving. */
+#rectime.paused { color: var(--muted); }
+#rectime.paused::after { content: ' ⏸'; }
 
 /* mic level: shows the mic is picking you up even when the recognizer is between
    sessions, so silence is distinguishable from a dead input */

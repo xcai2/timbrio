@@ -91,7 +91,7 @@ const CSS = `
          enough not to reintroduce the glare the warm palette exists to avoid. */
       --live: #7fc8b8;
     }
-    .stop:hover { background: #34302b; }
+    .stop:hover, .pause:hover { background: #34302b; }
   }
   .head {
     display: flex; align-items: center; gap: 10px;
@@ -105,17 +105,25 @@ const CSS = `
   }
   @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .25 } }
   @media (prefers-reduced-motion: reduce) { .dot { animation: none } }
+  /* Paused: the dot stops pulsing and drains of colour, and the timer dims with it. A
+     still grey dot cannot be mistaken for the live one at a glance across the room —
+     which matters, because the whole cost of a mistake here is a lost recording. */
+  body.paused .dot { animation: none; background: var(--empty); }
+  body.paused #time { color: var(--empty); }
   #time {
     font-variant-numeric: tabular-nums; font-weight: 700; font-size: 16px;
     letter-spacing: .01em;
   }
   .spacer { flex: 1 }
-  .stop {
+  .stop, .pause {
     font: inherit; font-weight: 600; cursor: pointer;
     padding: 5px 12px; border-radius: 8px;
     border: 1px solid var(--line); background: var(--bg); color: var(--fg);
   }
-  .stop:hover { background: var(--chrome); }
+  .stop:hover, .pause:hover { background: var(--chrome); }
+  /* The window is only 420px wide and Stop carries a full sentence, so Pause gives up its
+     padding first rather than pushing Stop off the edge. */
+  .pause { padding: 5px 9px; }
   #meterwrap { height: 3px; background: var(--line); flex: 0 0 auto; }
   #meter {
     height: 100%; width: 0%; background: var(--meter);
@@ -142,13 +150,16 @@ const CSS = `
 
 export class PipWindow {
   /* onStop() — the user pressed Stop inside the floating window.
+     onPause() — the user pressed Pause/Resume there. The caller owns the paused state and
+                 reports it back via setPaused; this window never assumes the toggle worked.
      onClose() — the window was closed by the user (the OS close button), rather than by us.
                  Recording is deliberately left running: closing a view should never destroy
                  the take. The caller moves the captions back into the page. */
-  constructor({ onStop, onClose } = {}) {
-    this.onStop = onStop; this.onClose = onClose;
+  constructor({ onStop, onPause, onClose } = {}) {
+    this.onStop = onStop; this.onPause = onPause; this.onClose = onClose;
     this.win = null;
     this.closingSelf = false;
+    this.labels = null;
   }
 
   get open() { return !!(this.win && !this.win.closed); }
@@ -162,6 +173,7 @@ export class PipWindow {
       disallowReturnToOpener: true,
     });
     this.win = win;
+    this.labels = labels;
 
     const style = win.document.createElement('style');
     style.textContent = CSS;
@@ -173,6 +185,7 @@ export class PipWindow {
         <span class="dot"></span>
         <span id="time">00:00</span>
         <span class="spacer"></span>
+        <button class="pause" id="pause"></button>
         <button class="stop" id="stop"></button>
       </div>
       <div id="meterwrap"><div id="meter"></div></div>
@@ -180,11 +193,14 @@ export class PipWindow {
     `;
 
     const $ = id => win.document.getElementById(id);
-    this.el = { time: $('time'), meter: $('meter'), box: $('box'), stop: $('stop') };
+    this.el = { time: $('time'), meter: $('meter'), box: $('box'),
+                stop: $('stop'), pause: $('pause') };
     this.el.stop.textContent = labels.stop;
+    this.el.pause.textContent = labels.pause;
     this.el.box.dataset.empty = labels.empty;
 
     this.el.stop.onclick = () => this.onStop?.();
+    this.el.pause.onclick = () => this.onPause?.();
 
     // Fires for both an OS close and our own close(); the flag tells them apart.
     win.addEventListener('pagehide', () => {
@@ -197,6 +213,14 @@ export class PipWindow {
 
   setTime(text) { if (this.open) this.el.time.textContent = text; }
   setLevel(v)   { if (this.open) this.el.meter.style.width = Math.round(v * 100) + '%'; }
+
+  /* The level meter keeps moving while paused — on purpose. It is the cue that someone has
+     started talking again, which is exactly the moment the user needs to hit Resume. */
+  setPaused(on) {
+    if (!this.open) return;
+    this.win.document.body.classList.toggle('paused', !!on);
+    this.el.pause.textContent = on ? this.labels.resume : this.labels.pause;
+  }
 
   /* The caption view is rebuilt from the page's own state rather than kept in sync
      incrementally, so the two views can never drift apart.

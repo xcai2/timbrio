@@ -68,10 +68,44 @@ export class Recorder {
     this.stream = null; this.rec = null; this.ctx = null;
     this.mixer = null; this.sources = [];
     this.startedAt = 0; this.raf = 0; this.timer = 0;
+    this.pausedAt = 0; this.pausedMs = 0;
   }
 
-  get active() { return !!(this.rec && this.rec.state === 'recording'); }
-  get elapsed() { return this.startedAt ? Date.now() - this.startedAt : 0; }
+  /* `active` covers a paused session too: the take is still open, the tracks are still
+     held, and Stop is still the way out of it. `paused` distinguishes the two states. */
+  get active() {
+    return !!(this.rec && (this.rec.state === 'recording' || this.rec.state === 'paused'));
+  }
+  get paused() { return !!(this.rec && this.rec.state === 'paused'); }
+
+  /* Recorded time, not wall-clock time — paused stretches are excluded, so the timer
+     matches the length of the audio that will actually be transcribed and billed. */
+  get elapsed() {
+    if (!this.startedAt) return 0;
+    return (this.pausedAt || Date.now()) - this.startedAt - this.pausedMs;
+  }
+
+  /* Suspend capture without ending the take. MediaRecorder keeps its chunks and resumes
+     into the same file, so the paused stretch simply is not in the recording — which is
+     the point: the final transcription pass is billed by audio length.
+
+     The tracks are deliberately left running. Re-acquiring them would mean a fresh
+     permission prompt, and for system audio a fresh share dialog, which would make
+     resuming more disruptive than just leaving the recording going. */
+  pause() {
+    if (!this.rec || this.rec.state !== 'recording') return false;
+    this.rec.pause();
+    this.pausedAt = Date.now();
+    return true;
+  }
+
+  resume() {
+    if (!this.rec || this.rec.state !== 'paused') return false;
+    this.rec.resume();
+    this.pausedMs += Date.now() - this.pausedAt;
+    this.pausedAt = 0;
+    return true;
+  }
 
   async start() {
     const wantsMic = this.source === 'mic' || this.source === 'both';

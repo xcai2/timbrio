@@ -74,7 +74,7 @@ function refreshDynamicText() {
   if ($('toggle-label')) syncSettingsToggle();
   if (segments.length) { drawRows(); drawStats(); applySearch(); }
   else $('hint').textContent = t('hint.default');
-  if (live) $('livego').textContent = live.wanted ? t('live.stop') : t('live.start');
+  if ($('livego')) syncRecordLabels();
 }
 
 /* ---------------- key storage ----------------
@@ -272,6 +272,11 @@ let liveStream = null;
 let pip = null;             // floating always-on-top window, while recording
 let finals = [];            // { text, gap } per completed turn, mirrored into the PiP window
 let idleTimer = 0;          // fires when nobody has spoken for IDLE_STOP_MS
+let breakNext = false;      // the next turn follows a pause and starts a new paragraph
+
+/* Any value the floating window reads as a handover will do; a pause is by definition a
+   longer break than the one that grouping is trying to detect. */
+const RESUME_GAP_MS = 5000;
 
 /* A recording left running costs money on two counts: the streaming socket bills for as
    long as it is open, and the final pass bills for the whole file — so a session forgotten
@@ -360,13 +365,83 @@ $('livego').onclick = async () => {
     return;
   }
 
-  $('livego').classList.add('listening');
-  $('livego').textContent = t('live.stop');
-  $('rectime').classList.add('live');
+  setRecordState('recording');
+  startLiveStream(key);
+  noteSpeech();          // arm the idle countdown; silence from the outset still stops
 
-  // Live transcript from AssemblyAI's streaming API, over the same mic stream. Accurate
-  // enough to be the real thing rather than a rough preview; speaker labels still come
-  // from the final pass once the full recording is available.
+  // Float the session above other apps, so it stays visible once the user switches to
+  // the call they are recording. Best-effort: unsupported browsers, and a user who
+  // dismisses the window, both just keep the in-page view.
+  openPip();
+};
+
+/* ---------------- pause ----------------
+   Pausing is a cost control, not just a convenience. A recording left running through a
+   break is billed twice over: the streaming socket bills for as long as it is open, and
+   the final pass bills for every minute of the file. Pausing closes the socket and stops
+   the recorder, so a ten-minute break costs nothing on either count.
+
+   The tracks stay held (see Recorder.pause) and the take stays open, so resuming is one
+   click with no permission prompt and the audio continues into the same file. */
+function setRecordState(state) {
+  $('livego').dataset.state = state;
+  $('livego').classList.toggle('listening', state === 'recording');
+  $('rectime').classList.toggle('live', state === 'recording');
+  $('rectime').classList.toggle('paused', state === 'paused');
+  syncRecordLabels();
+  pip?.setPaused(state === 'paused');
+}
+
+/* Labels only, driven off the button's own state — so a language switch can relabel both
+   buttons without reaching for recorder state that may not exist yet at module init. */
+function syncRecordLabels() {
+  const state = $('livego').dataset.state || 'idle';
+  $('livego').textContent = state === 'idle' ? t('live.start') : t('live.stop');
+  const p = $('livepause');
+  if (!p) return;
+  p.style.display = state === 'idle' ? 'none' : '';
+  p.textContent = state === 'paused' ? t('live.resume') : t('live.pause');
+}
+
+function pauseRecording() {
+  if (!recorder?.pause()) return;
+  // Closing the socket is where the streaming bill actually stops. It cannot be paused,
+  // only closed and reopened — hence the fresh LiveStream on resume.
+  if (liveStream) { liveStream.stop(); liveStream = null; }
+  clearTimeout(idleTimer);
+  $('interim').textContent = '';
+  pip?.setCaptions(finals, '');
+  setRecordState('paused');
+  $('livenote').className = 'note';
+  $('livenote').textContent = t('live.paused');
+}
+
+function resumeRecording() {
+  const key = keyInput.value.trim();
+  if (!recorder?.resume()) return;
+  startLiveStream(key);
+  // The pause is a gap in the conversation by definition, so the first turn after it
+  // starts a new paragraph. The new socket's own timings restart at zero and would
+  // otherwise report no gap at all, running the two halves of the break together.
+  breakNext = true;
+  noteSpeech();
+  setRecordState('recording');
+  $('livenote').className = 'note';
+  $('livenote').textContent = pip?.open ? t('live.pipOpen') : t('live.recording');
+}
+
+$('livepause').onclick = () => {
+  if (!recorder?.active) return;
+  if (recorder.paused) resumeRecording(); else pauseRecording();
+};
+
+/* Live transcript from AssemblyAI's streaming API, over the same mic stream. Accurate
+   enough to be the real thing rather than a rough preview; speaker labels still come from
+   the final pass once the full recording is available.
+
+   Built fresh on every start and every resume: a socket cannot be reopened, and the page
+   holds the accumulated turns in `finals`, so a new one picks up where the last left off. */
+function startLiveStream(key) {
   liveStream = new LiveStream({
     apiKey: key,
     stream: recorder.stream,
@@ -394,8 +469,11 @@ $('livego').onclick = async () => {
       $('livetext').append(p);
       $('interim').textContent = '';
       // Measured on the audio timeline by the API, so it reflects the speaker's actual
-      // pause rather than how quickly the network delivered the message.
-      const gap = gapMs || 0;
+      // pause rather than how quickly the network delivered the message. The exception is
+      // the first turn after a resume: that socket's timeline starts at zero and knows
+      // nothing of the break, so the break is asserted here instead of measured.
+      const gap = breakNext ? RESUME_GAP_MS : (gapMs || 0);
+      breakNext = false;
       // The page keeps one paragraph per turn; only the floating window, which is short,
       // needs to economise on lines, so the gap travels with the text for it to use.
       finals.push({ text: txt, gap });
@@ -413,18 +491,16 @@ $('livego').onclick = async () => {
       pip?.setCaptions(finals, '');
     },
     onState: st => {
-      if (st === 'connected') { $('livenote').className = 'note'; $('livenote').textContent = t('live.recording'); }
+      // The socket also connects on resume, when the floating window is the thing the user
+      // is actually looking at — so don't overwrite the note that says where to look.
+      if (st === 'connected' && !pip?.open) {
+        $('livenote').className = 'note'; $('livenote').textContent = t('live.recording');
+      }
     },
     onError: msg => { $('livenote').className = 'note'; $('livenote').textContent = msg + ' ' + t('live.stillRecording'); },
   });
   liveStream.start().catch(() => {});
-  noteSpeech();          // arm the idle countdown; silence from the outset still stops
-
-  // Float the session above other apps, so it stays visible once the user switches to
-  // the call they are recording. Best-effort: unsupported browsers, and a user who
-  // dismisses the window, both just keep the in-page view.
-  openPip();
-};
+}
 
 /* ---------------- floating window ----------------
    The PiP window is a *view* onto the recording, never the recording itself: the Recorder
@@ -434,19 +510,22 @@ async function openPip() {
   if (!pipSupported() || pip) return;
   const p = new PipWindow({
     onStop: () => finishRecording(),
+    onPause: () => $('livepause').click(),   // one path through the toggle, whoever pressed it
     onClose: () => {
       pip = null;
       $('livenote').className = 'note';
-      $('livenote').textContent = t('live.recording');
+      $('livenote').textContent = recorder?.paused ? t('live.paused') : t('live.recording');
       showPipButton();          // closing the view never stops the take
     },
   });
   try {
     await p.start({
       labels: {
-        title: t('live.pipTitle'),
-        stop:  t('live.pipStop'),
-        empty: t('live.empty'),
+        title:  t('live.pipTitle'),
+        stop:   t('live.pipStop'),
+        pause:  t('live.pipPause'),
+        resume: t('live.pipResume'),
+        empty:  t('live.empty'),
       },
     });
   } catch {
@@ -460,6 +539,9 @@ async function openPip() {
   pip = p;
   pip.setTime(mmss(recorder ? recorder.elapsed : 0));
   pip.setCaptions(finals, $('interim').textContent);
+  // The window can be opened mid-pause, so it adopts the current state rather than
+  // assuming a session it has just joined is running.
+  pip.setPaused(!!recorder?.paused);
   $('pipbtn')?.remove();
   $('livenote').className = 'note';
   $('livenote').textContent = t('live.pipOpen');
@@ -479,12 +561,17 @@ function showPipButton() {
 /* ---------------- idle stop ----------------
    Restarted by every scrap of recognised speech, so the countdown measures silence rather
    than elapsed time. Speech is the right signal here: the input meter never reaches zero in
-   a real room, so a level-based check would keep a session alive on air conditioning. */
+   a real room, so a level-based check would keep a session alive on air conditioning.
+
+   A paused session is exempt. The countdown exists to stop a session that is quietly
+   costing money, and a paused one is not — so silence during a deliberate hold should
+   never end the take. (The socket can deliver a straggling turn just after a pause, which
+   is why this is checked here and not only at the call sites.) */
 function noteSpeech() {
-  if (!recorder?.active) return;
+  if (!recorder?.active || recorder.paused) return;
   clearTimeout(idleTimer);
   idleTimer = setTimeout(() => {
-    if (!recorder?.active) return;
+    if (!recorder?.active || recorder.paused) return;
     // Say why before stopping — finishRecording immediately overwrites this with its own
     // progress messages, but the reason survives in the transcript that follows.
     $('livenote').className = 'note';
@@ -497,10 +584,10 @@ async function finishRecording() {
   clearTimeout(idleTimer);
   const key = keyInput.value.trim();
   $('livego').disabled = true;
-  $('livego').classList.remove('listening');
-  $('rectime').classList.remove('live');
+  setRecordState('idle');   // clears the listening/paused styling and hides Pause
   $('meterwrap').classList.remove('show');
   $('interim').textContent = '';
+  breakNext = false;
   if (liveStream) { liveStream.stop(); liveStream = null; }
   if (live) { live.stop(); live = null; }
   if (pip) { pip.close(); pip = null; }   // the transcript belongs in the page
@@ -508,7 +595,6 @@ async function finishRecording() {
 
   const file = await recorder.stop();
   recorder = null;
-  $('livego').textContent = t('live.start');
 
   if (!file.size) {
     $('livenote').className = 'note err';
