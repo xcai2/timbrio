@@ -167,10 +167,13 @@ export class PipWindow {
   /* Must be called during a user gesture, or the browser refuses the window.
      `labels` carries the already-translated strings, so this module stays free of i18n. */
   async start({ labels }) {
+    /* `disallowReturnToOpener` is deliberately left off. It hides the browser's own
+       "back to tab" button, which an earlier version set on the reasoning that this is a
+       HUD rather than a document — but a HUD that floats above every other window and
+       covers the tab strip is precisely the one that needs a way back. Without that
+       button the window offers no route to the page it came from at all. */
     const win = await documentPictureInPicture.requestWindow({
       width: WIDTH, height: HEIGHT,
-      // Keep the window out of the tab-switching flow: it is a HUD, not a document.
-      disallowReturnToOpener: true,
     });
     this.win = win;
     this.labels = labels;
